@@ -420,13 +420,21 @@ export delimited using "$table\AUT_output1b.csv", replace
 
 /*
 2 C Output
-Difference without model. 
+Difference with model. 
 Gestational age in completed weeks due to data availability
 Inter-pregnancy interval in Eskild groups
 
 */
 
 frame change eskild_grp
+
+*convert to days for comparability
+
+foreach var of varlist schwdau_voll1 schwdau_voll2 {
+	replace `var' = `var' *7
+	
+}
+
 
 reg schwdau_voll2 schwdau_voll1 i.month_grp [fweight=sum_grp1]
 coefplot, ///
@@ -453,7 +461,11 @@ frame change default
 count
 *look good
 
-*in days
+*convert to days
+foreach var of varlist schwdau_voll1 schwdau_voll2 {
+	replace `var' = `var' *7
+	
+}
 
 reg schwdau_voll2 schwdau_voll1 ib1.interpreg_months [fweight=Count]
 coefplot, ///
@@ -520,12 +532,13 @@ replace month=month+1 if finland ==-1
 
 
 tw ///
-(scatter mean_diff month if finland==2, lcolor(black) mcolor(black) msize(small)) ///
+(scatter mean_diff month if finland==2, lcolor(black) mcolor(black) msize(tiny)) ///
 (rspike ul95 ll95 month if finland==2,  lcolor(black) lwidth(thin))  ///
 , ///
 yt("Gestational Age 2nd Birth - 1st Birth in days",  size(medsmall)) ///
 xt("Inter-pregnancy Interval in Months") ///
 xlab(0 " " 1 "0-5" 2 "6-11" 3 "12-17" 4 "18-23" 5 "24-29" 6 "30-35", noticks nogrid) ///
+ylab(-1(0.5) 4, gmin) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel A:} {bf:Finland}", size(medium)) ///
@@ -534,27 +547,36 @@ name(FIN1, replace)
 
 
 tw ///
-(scatter mean_diff month if finland==1, lcolor(black) mcolor(black) msize(vsmall)) ///
+(scatter mean_diff month if finland==1, lcolor(black) mcolor(black) msize(tiny)) ///
 (rspike ul95 ll95 month if finland==1, lcolor(black) lwidth(thin)) if month>0 ///
 , ///
 yt("Gestational Age 2nd Birth - 1st Birth in days", size(medsmall)) ///
 xt("Inter-pregnancy Interval in Months") ///
-xlab(0(2)35, noticks nogrid) ///
+xlab(1(2)35, noticks nogrid) ///
+ylab(-1(0.5) 4, gmin) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel C:} {bf:Finland}", size(medium)) ///
 name(FIN2, replace)
 
-grc1leg2 FIN1 FIN2, col(1) xtob1title ytol1title  name(col1,replace)
+grc1leg2 FIN1 FIN2, col(1) xtob1title ytol1title ycommon  name(col1,replace)
+
+
+*Convert Austrian effects to days by multiplying with 7
+
+foreach var of varlist mean_diff ul95 ll95 {
+	replace `var' = `var' *7 if finland==-1
+	replace `var' = `var' *7 if finland==0
+}
 
 tw ///
-(scatter mean_diff month if finland==-1, lcolor(black) mcolor(black) msize(small)) ///
+(scatter mean_diff month if finland==-1, lcolor(black) mcolor(black) msize(tiny)) ///
 (rspike ul95 ll95 month if finland==-1, lcolor(black) lwidth(thin)) ///
 , ///
-yt("Gestational Age 2nd Birth - 1st Birth in weeks",  size(medsmall)) ///
+yt("",size(tiny) ) ///
 xt("Inter-pregnancy Interval in Months") ///
 xlab(0 " " 1 "0-5" 2 "6-11" 3 "12-17" 4 "18-23" 5 "24-29" 6 "30-35", noticks nogrid) ///
-ylab(0(0.02)0.12, gmin) ///
+ylab(-1(0.5) 4, gmin) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel B:} {bf:Austria}",size(medium)) ///
@@ -562,23 +584,23 @@ name(AT1, replace)
 
 
 tw ///
-(scatter mean_diff month if finland==0, lcolor(black) mcolor(black) msize(vsmall)) ///
+(scatter mean_diff month if finland==0, lcolor(black) mcolor(black) msize(tiny)) ///
 (rspike ul95 ll95 month if finland==0, lcolor(black) lwidth(thin)) if month>0 ///
 , ///
-yt("Gestational Age 2nd Birth - 1st Birth in weeks", size(medsmall)) ///
+yt("",size(tiny)) ///
 xt("Inter-pregnancy Interval in Months") ///
-xlab(0(2)35, noticks nogrid) ///
-ylab(0(0.1)0.6, gmin) ///
+xlab(1(2)35, noticks nogrid) ///
+ylab(-1(0.5) 4, gmin) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel D:} {bf:Austria}",size(medium)) ///
 name(AT2, replace)
 
 
-grc1leg2 AT1 AT2, col(1) xtob1title ytol1title  name(col2,replace)
+grc1leg2 AT1 AT2, col(1) xtob1title ytol1title ycommon  name(col2,replace)
 
 grc1leg2 col1 col2, ///
-col(2) loff imargins(medsmall) 
+col(2) loff imargins(zero) 
 
 /*///
 note("Differences for inter-pregnancy intervals smaller than 1 month are omitted in the lower panels due to few observations (AT: n=26, FI: n=24)" "For Austria, we used completed weeks due to data availability" "Means of differences in gestational age (no regression models)" , size(vsmall))*/
@@ -586,6 +608,18 @@ note("Differences for inter-pregnancy intervals smaller than 1 month are omitted
 graph export "$graph/figure1_EJEletter.svg",replace
 graph export "$graph/figure1_EJEletter.pdf",replace
 
+*create table for appendix
+
+drop std_err
+gen austria=1 if finland==0
+replace austria=2 if finland==-1
+
+gen month_grp= month if finland==2 | finland==-1
+label define month_lab 1 "0-5" 2 "6-11" 3 "12-17" 4 "18-23" 5 "24-29" 6 "30-35"
+label values month_grp month_lab 
+label values month_grp month_lab 
+
+export excel using "$table\Figure1_data.xls", firstrow(variables)  replace
 
 **# Bookmark #11
 
@@ -651,7 +685,7 @@ save "$dta\output2a.dta",replace
 
 *Austria output 2b
 
-import delimited "$table\AUT_output2b.csv", clear 
+import delimited "$table\AUT_output2c.csv", clear 
 
 gen finland=0
 drop if v2=="m1"
@@ -675,11 +709,11 @@ drop in 7
 
 gen month=_n-1
 
-save "$dta\AUT_output2b.dta",replace
+save "$dta\AUT_output2c.dta",replace
 
 *OUTPUT 2A Finland
 
-import delimited "$table\AUT_output2a.csv", clear 
+import delimited "$table\AUT_output2d.csv", clear 
 
 gen finland=-1
 drop if v2=="m1"
@@ -702,7 +736,7 @@ drop in 37
 
 gen month=_n-1
 
-save "$dta\AUT_output2a.dta",replace
+save "$dta\AUT_output2d.dta",replace
 
 
 **# Bookmark #12
@@ -710,20 +744,22 @@ save "$dta\AUT_output2a.dta",replace
 
 append using "$dta\output2a.dta"
 append using "$dta\output2b.dta"
-append using "$dta\AUT_output2b.dta"
+append using "$dta\AUT_output2c.dta"
 
 replace month=month+1 if finland ==1
 replace month=month+1 if finland ==0
 
-
+preserve 
+drop if month==0 // messing with the axis
 
 tw ///
-(scatter b month if finland==1, lcolor(black) mcolor(black) msize(small)) ///
-(rspike max95 min95 month if finland==1, lcolor(black) lwidth(thin)) ///
+(scatter b month if finland==1 & month>0, lcolor(black) mcolor(black) msize(tiny)) ///
+(rspike max95 min95 month if finland==1 & month>0, lcolor(black) lwidth(thin)) ///
 , ///
 yt("Effect on Gestational Age (days) of 2nd Birth", size(medsmall)) ///
 xt("Inter-pregnancy Interval in Months") ///
 xlab(0 " " 1 "0-5" 2 "6-11" 3 "12-17" 4 "18-23" 5 "24-29" 6 "30-35", noticks nogrid) ///
+ylab(-1.5(0.5)2.5, gmin ) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel A:} {bf:Finland}", size(medium)) ///
@@ -731,28 +767,30 @@ name(FIN1, replace)
 
 
 tw ///
-(scatter b month if finland==2, lcolor(black) mcolor(black) msize(vsmall)) ///
-(rspike max95 min95 month if finland==2, lcolor(black) lwidth(thin)) ///
+(scatter b month if finland==2 & month>0, lcolor(black) mcolor(black) msize(tiny)) ///
+(rspike max95 min95 month if finland==2 & month>0, lcolor(black) lwidth(thin)) ///
 , ///
 yt("Effect on Gestational Age (days) of 2nd Birth", size(medsmall)) ///
 xt("Inter-pregnancy Interval in Months") ///
-xlab(0(2)35, nogrid noticks) ///
-ylab(0(2)16, gmin) ///
+xlab(1(2)35, nogrid noticks) ///
+ylab(-1.5(0.5)2.5, gmin ) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel C:} {bf:Finland}", size(medium)) ///
 name(FIN2, replace)
 
-grc1leg2 FIN1 FIN2, col(1) xtob1title ytol1title  name(col1,replace)
+grc1leg2 FIN1 FIN2, col(1) xtob1title ytol1title loff name(col1,replace)
 
+*Austrian effects are completed weeks * 7
 
 tw ///
-(scatter b month if finland==0, lcolor(black) mcolor(black) msize(small)) ///
-(rspike max95 min95 month if finland==0, lcolor(black) lwidth(thin)) ///
+(scatter b month if finland==0 & month>0, lcolor(black) mcolor(black) msize(tiny)) ///
+(rspike max95 min95 month if finland==0 & month>0, lcolor(black) lwidth(thin)) ///
 , ///
-yt("Effect on Gestational Age (weeks) of 2nd Birth", size(medsmall)) ///
+yt("", size(tiny)) ///
 xt("Inter-pregnancy Interval in Months") ///
 xlab(0 " " 1 "0-5" 2 "6-11" 3 "12-17" 4 "18-23" 5 "24-29" 6 "30-35", noticks nogrid) ///
+ylab(-1.5(0.5)2.5, gmin ) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel B:} {bf:Austria}", size(medium)) ///
@@ -760,25 +798,25 @@ name(AT1, replace)
 
 
 tw ///
-(scatter b month if finland==-1, lcolor(black) mcolor(black) msize(vsmall)) ///
-(rspike max95 min95 month if finland==-1, lcolor(black) lwidth(thin)) ///
+(scatter b month if finland==-1 & month>0, lcolor(black) mcolor(black) msize(tiny)) ///
+(rspike max95 min95 month if finland==-1 & month>0, lcolor(black) lwidth(thin)) ///
 , ///
-yt("Effect on Gestational Age (weeks) of 2nd Birth", size(medsmall)) ///
+yt("", size(tiny)) ///
 xt("Inter-pregnancy Interval in Months") ///
-xlab(0(2)35, nogrid noticks) ///
-ylab(-2(1)6, ) ///
+xlab(1(2)35, nogrid noticks) ///
+ylab(-1.5(0.5)2.5, gmin ) ///
 yline(0, lcolor(red) lpattern(solid)) ///
 leg(off) ///
 title("{it:Panel D:} {bf:Austria}", size(medium)) ///
 name(AT2, replace)
 
-grc1leg2 AT1 AT2, col(1) xtob1title ytol1title  name(col2,replace)
+grc1leg2 AT1 AT2, col(1) xtob1title ytol1title loff  name(col2,replace)
 
 
 *combining
 
 grc1leg2 col1 col2, ///
-col(2) loff imargins(medsmall) 
+col(2) loff  imargins(zero) 
 
 /* ///
 note("Estimated by linear regression using gestational age of second birth as outcome, gestational age of first birth and indicator variables for the inter-pregnancy intervals as covariates." "The figure shows the estimated coefficients for each inter-pregnancy interval with 1 being the reference for the lower panels" "For Austria, we used completed weeks due to data availability" , size(tiny))
@@ -787,6 +825,7 @@ note("Estimated by linear regression using gestational age of second birth as ou
 graph export "$graph/figure2_EJEletter.svg",replace
 graph export "$graph/figure2_EJEletter.pdf",replace
 
+restore
 
 *That's it.
 
